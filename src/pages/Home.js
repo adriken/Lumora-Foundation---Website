@@ -3,10 +3,6 @@ import { Counter, FadeIn } from "../components/utils";
 // ─── IMAGE IMPORTS ─────────────────────────────────────────────────────────────
 import aboutPhoto from "../images/about-team.jpg";
 
-function openImpactReport() {
-  window.open("/impact-report.html", "_blank", "noopener,noreferrer");
-}
-
 export default function Home({ setPage }) {
   return (
     <>
@@ -165,22 +161,22 @@ export default function Home({ setPage }) {
         </div>
         <FadeIn>
           <div style={{ textAlign: "center", marginTop: 48 }}>
-            <button
-              onClick={openImpactReport}
+            <a
+              href="/impact-report.html"
+              target="_blank"
+              rel="noopener noreferrer"
               style={{
-                background: "var(--ember)", color: "var(--obsidian)", border: "none",
+                background: "var(--ember)", color: "var(--obsidian)",
                 borderRadius: 100, padding: "16px 36px", fontFamily: "var(--ff-body)",
                 fontWeight: 700, fontSize: "0.95rem", cursor: "pointer",
-                display: "inline-flex", alignItems: "center", gap: 10, transition: "all .25s",
+                display: "inline-flex", alignItems: "center", gap: 10,
+                transition: "all .25s", textDecoration: "none",
               }}
-              onMouseEnter={e => { e.currentTarget.style.background = "var(--ember-glow)"; e.currentTarget.style.transform = "translateY(-2px)"; }}
-              onMouseLeave={e => { e.currentTarget.style.background = "var(--ember)"; e.currentTarget.style.transform = "translateY(0)"; }}
+              onMouseEnter={e => { e.currentTarget.style.background = "var(--ember-glow)"; e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.boxShadow = "0 12px 40px rgba(212,129,58,0.4)"; }}
+              onMouseLeave={e => { e.currentTarget.style.background = "var(--ember)"; e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = "none"; }}
             >
               📊 View Full Impact Report 2025
-            </button>
-            <div style={{ marginTop: 14, fontSize: "0.8rem", color: "var(--sand-dim)" }}>
-              Independently audited · 2021–2025 · Opens in a new tab
-            </div>
+            </a>
           </div>
         </FadeIn>
       </section>
