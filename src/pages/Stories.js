@@ -104,7 +104,7 @@ const STORY_CARDS = [
   { key: "marsabit", cat: "Food Relief",    title: "72 Hours in Marsabit: Inside a Lumora Emergency Response",    excerpt: "When the drought alert fired at 4:47 a.m., Lumora had 72 hours to reach 6,900 people in the most remote corners of Marsabit County.", type: "read", featured: true, readTime: "8 min read" },
   { key: "water",    cat: "Community",      title: "How One Village Built Its Own Water System",                   excerpt: "For forty years, the women of Kargi walked four kilometres to the river every morning. Then, in nine weeks, they built something that ended that walk forever.", type: "read", readTime: "7 min read" },
   { key: null,       cat: "Tech Education", title: "From a Militia child soldier recruiter to an aspiring startup Founder.",                  type: "watch", video: "/videos/scholar.mp4" },
-  { key: null,       cat: "Scholar Profile",title: "Meet Apal Bonik, a digital marketing and E-commerce scholar.",             type: "watch", video: "/videos/tech-education.mp4" },
+  { key: null,       cat: "Inconsistent Food Supply",title: "Refugee children in Kenya face starvation.",             type: "watch", video: "/videos/aid.mp4" },
   { key: null,       cat: "Impact Report",  title: "2025 Annual Impact: The Numbers Behind the Change",            type: "read" },
 ];
 

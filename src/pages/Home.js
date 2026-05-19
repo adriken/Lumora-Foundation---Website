@@ -161,22 +161,28 @@ export default function Home({ setPage }) {
         </div>
         <FadeIn>
           <div style={{ textAlign: "center", marginTop: 48 }}>
-            <a
-              href="/impact-report.html"
-              target="_blank"
-              rel="noopener noreferrer"
+            <button
+              onClick={() => setPage("ImpactReport")}
               style={{
                 background: "var(--ember)", color: "var(--obsidian)",
-                borderRadius: 100, padding: "16px 36px", fontFamily: "var(--ff-body)",
-                fontWeight: 700, fontSize: "0.95rem", cursor: "pointer",
-                display: "inline-flex", alignItems: "center", gap: 10,
-                transition: "all .25s", textDecoration: "none",
+                border: "none", borderRadius: 100, padding: "16px 36px",
+                fontFamily: "var(--ff-body)", fontWeight: 700, fontSize: "0.95rem",
+                cursor: "pointer", display: "inline-flex", alignItems: "center",
+                gap: 10, transition: "all .25s",
               }}
-              onMouseEnter={e => { e.currentTarget.style.background = "var(--ember-glow)"; e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.boxShadow = "0 12px 40px rgba(212,129,58,0.4)"; }}
-              onMouseLeave={e => { e.currentTarget.style.background = "var(--ember)"; e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = "none"; }}
+              onMouseEnter={e => {
+                e.currentTarget.style.background = "var(--ember-glow)";
+                e.currentTarget.style.transform = "translateY(-2px)";
+                e.currentTarget.style.boxShadow = "0 12px 40px rgba(212,129,58,0.4)";
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.background = "var(--ember)";
+                e.currentTarget.style.transform = "translateY(0)";
+                e.currentTarget.style.boxShadow = "none";
+              }}
             >
               📊 View Full Impact Report 2025
-            </a>
+            </button>
           </div>
         </FadeIn>
       </section>

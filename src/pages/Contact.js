@@ -29,8 +29,8 @@ export default function Contact() {
 
                   {[
                     { icon: "📍", title: "Headquarters",      val: "Nairobi, Kenya, 00100" },
-                    { icon: "✉️", title: "General Inquiries", val: "hello@lumorafoundation.org" },
-                    { icon: "🤝", title: "Partnerships",      val: "partners@lumorafoundation.org" },
+                    { icon: "✉️", title: "General Inquiries", val: "hello@lu-mora.org" },
+                    { icon: "🤝", title: "Partnerships",      val: "partners@lu-mora.org" },
                     { icon: "📞", title: "Phone",             val: "+254 700 000 000" },
                   ].map((c, i) => (
                     <div key={i} className="contact-info-item">
@@ -134,11 +134,11 @@ export default function Contact() {
                 <h2 className="section-h2" style={{ marginBottom: 32 }}>Stay <em>Connected</em></h2>
                 <div style={{ display: "flex", gap: 16, justifyContent: "center", flexWrap: "wrap" }}>
                   {[
-                    { label: "𝕏 Twitter / X",  href: "https://twitter.com/lumorafoundation" },
-                    { label: "in LinkedIn",     href: "https://linkedin.com/company/lumora-foundation" },
-                    { label: "▶ YouTube",       href: "https://youtube.com/@lumorafoundation" },
+                    { label: "𝕏 Twitter / X",  href: "https://x.com/Lumora_F" },
+                    { label: "in LinkedIn",     href: "www.linkedin.com/in/lumora-foundation-0448b240b" },
+                    { label: "▶ YouTube",       href: "https://www.youtube.com/@LumoraFoundation" },
                     { label: "📷 Instagram",    href: "https://instagram.com/lumorafoundation" },
-                    { label: "f Facebook",      href: "https://facebook.com/lumorafoundation" },
+                    { label: "f Facebook",      href: "https://www.facebook.com/people/Lumora-Mwangaza/pfbid031vxE7VTRaCT89XGwpiVKa3zfPTZ1gTtvuNKDkT5micheYyY2C4iP3Lhe8BBCHwNEl/" },
                   ].map((s, i) => (
                     <a key={i} href={s.href} target="_blank" rel="noopener noreferrer" className="btn-secondary" style={{ fontSize: "0.85rem" }}>
                       {s.label}
