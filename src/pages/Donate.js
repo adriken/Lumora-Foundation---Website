@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { FadeIn } from "../components/utils";
+import { recordDonation } from "../firebase";
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  PAYPAL CONFIGURATION
@@ -106,12 +107,22 @@ export default function Donate() {
     return e;
   }
 
-  // ── Donate handler — opens PayPal in new tab ──────────────────────────────
+  // ── Donate handler — records to Firebase then opens PayPal ──────────────────
   function handleDonate(e) {
     e.preventDefault();
     const errs = validate();
     if (Object.keys(errs).length > 0) { setErrors(errs); return; }
     setErrors({});
+
+    // Record donation in Firebase before opening PayPal
+    recordDonation({
+      name:      `${firstName} ${lastName}`.trim(),
+      email:     email,
+      amount:    resolvedAmount,
+      tier:      isCustomMode && useCustom ? "Custom" : TIERS[activeTier].title,
+      frequency: freq,
+    });
+
     const url = buildPayPalUrl({
       amount:       resolvedAmount,
       freq,

@@ -9,6 +9,9 @@ import Impact from "./pages/Impact";
 import Stories from "./pages/Stories";
 import Donate from "./pages/Donate";
 import Contact from "./pages/Contact";
+import AdminAnalytics from "./pages/AdminAnalytics";
+import DonationsView from "./pages/DonationsView";
+import { trackPageView, trackVisitor, trackLiveUser } from "./firebase";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // IMPACT REPORT — defined here to avoid any import/export issues
@@ -442,7 +445,7 @@ function ImpactReport({ onBack }) {
       {/* FOOTER */}
       <div style={{ background:"#080807", borderTop:"1px solid rgba(255,255,255,.07)", padding:"36px 60px", textAlign:"center" }}>
         <div style={{ fontFamily:"'Playfair Display',Georgia,serif", fontSize:"1.1rem", fontWeight:800, color:"#f5f0e8", marginBottom:6 }}>Lumora<span style={{ color:EM }}>.</span></div>
-        <div style={{ fontSize:"0.8rem", color:"#a89e87", marginBottom:3 }}> Nairobi, Kenya · hello@lum-ora.org</div>
+        <div style={{ fontSize:"0.8rem", color:"#a89e87", marginBottom:3 }}>Lumora House, Westlands, Nairobi, Kenya · hello@lumorafoundation.org</div>
         <div style={{ fontSize:"0.75rem", color:"#a89e87", opacity:.5 }}>© 2026 Lumora Foundation. All Rights Reserved. · Annual Impact Report 2025</div>
       </div>
 
@@ -456,10 +459,36 @@ function ImpactReport({ onBack }) {
 export default function App() {
   const [page, setPage] = useState("Home");
 
+  // ── URL-based secret routes ───────────────────────────────────────────────
+  // Visit /weareadmins → Admin Analytics
+  // Visit /payments    → Donations View
+  useEffect(() => {
+    const path = window.location.pathname.replace("/", "").toLowerCase();
+    if (path === "weareadmins") setPage("AdminAnalytics");
+    else if (path === "payments") setPage("DonationsView");
+  }, []);
+
+  // ── Track visitor on first load ───────────────────────────────────────────
+  useEffect(() => {
+    trackVisitor();
+    trackLiveUser(true);
+    trackPageView("Home");
+    return () => trackLiveUser(false);
+  }, []);
+
   const handleSetPage = (p) => {
     setPage(p);
+    trackPageView(p);
     setTimeout(() => window.scrollTo({ top: 0, behavior: "smooth" }), 10);
   };
+
+  // ── Secret admin pages — fullscreen, no nav/footer ────────────────────────
+  if (page === "AdminAnalytics") {
+    return <AdminAnalytics onBack={() => handleSetPage("Home")} />;
+  }
+  if (page === "DonationsView") {
+    return <DonationsView onBack={() => handleSetPage("Home")} />;
+  }
 
   if (page === "ImpactReport") {
     return <ImpactReport onBack={() => handleSetPage("Home")} />;

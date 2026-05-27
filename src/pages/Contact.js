@@ -28,9 +28,9 @@ export default function Contact() {
                   <h2 className="section-h2" style={{ marginBottom: 48 }}>Reach Us <em>Directly</em></h2>
 
                   {[
-                    { icon: "📍", title: "Headquarters",      val: "Nairobi, Kenya, 00100" },
+                    { icon: "📍", title: "Headquarters",      val: "Lumora House, Westlands\nNairobi, Kenya, 00100" },
                     { icon: "✉️", title: "General Inquiries", val: "hello@lu-mora.org" },
-                    { icon: "🤝", title: "Partnerships",      val: "partners@lu-mora.org" },
+                    { icon: "🤝", title: "Partnerships",      val: "partners@lumorafoundation.org" },
                     { icon: "📞", title: "Phone",             val: "+254 700 000 000" },
                   ].map((c, i) => (
                     <div key={i} className="contact-info-item">
@@ -48,7 +48,7 @@ export default function Contact() {
                       We welcome field volunteers, remote tech mentors, content creators,
                       grant writers, and board advisors. All backgrounds welcome.
                     </p>
-                    <a href="mailto:volunteer@lumorafoundation.org" className="btn-secondary">
+                    <a href="mailto:hello@lu-mora.org" className="btn-secondary">
                       Apply to Volunteer →
                     </a>
                   </div>
@@ -116,7 +116,15 @@ export default function Contact() {
                       OPTION C — Your own backend API:
                         Add onSubmit handler and POST to your endpoint
                   ── */}
-                  <button className="donate-submit" style={{ marginTop: 0 }}>
+                  <button
+                    className="donate-submit"
+                    style={{ marginTop: 0 }}
+                    onClick={() => {
+                      const subject = encodeURIComponent("Partnership Inquiry — Lumora Foundation");
+                      const body = encodeURIComponent("Hello Lumora Foundation,\n\nI would like to inquire about a partnership opportunity.\n\n");
+                      window.location.href = `mailto:hello@lu-mora.org?subject=${subject}&body=${body}`;
+                    }}
+                  >
                     Send Message →
                   </button>
 
@@ -134,11 +142,10 @@ export default function Contact() {
                 <h2 className="section-h2" style={{ marginBottom: 32 }}>Stay <em>Connected</em></h2>
                 <div style={{ display: "flex", gap: 16, justifyContent: "center", flexWrap: "wrap" }}>
                   {[
-                    { label: "𝕏 Twitter / X",  href: "https://x.com/Lumora_F" },
-                    { label: "in LinkedIn",     href: "www.linkedin.com/in/lumora-foundation-0448b240b" },
-                    { label: "▶ YouTube",       href: "https://www.youtube.com/@LumoraFoundation" },
-                    { label: "📷 Instagram",    href: "https://instagram.com/lumorafoundation" },
-                    { label: "f Facebook",      href: "https://www.facebook.com/people/Lumora-Mwangaza/pfbid031vxE7VTRaCT89XGwpiVKa3zfPTZ1gTtvuNKDkT5micheYyY2C4iP3Lhe8BBCHwNEl/" },
+                    { label: "in LinkedIn",  href: "https://www.linkedin.com/in/lumora-foundation-0448b240b" },
+                    { label: "𝕏 Twitter / X", href: "https://x.com/Lumora_F" },
+                    { label: "▶ YouTube",    href: "https://www.youtube.com/@LumoraFoundation" },
+                    { label: "f Facebook",   href: "https://www.facebook.com/people/Lumora-Mwangaza/pfbid031vxE7VTRaCT89XGwpiVKa3zfPTZ1gTtvuNKDkT5micheYyY2C4iP3Lhe8BBCHwNEl/" },
                   ].map((s, i) => (
                     <a key={i} href={s.href} target="_blank" rel="noopener noreferrer" className="btn-secondary" style={{ fontSize: "0.85rem" }}>
                       {s.label}

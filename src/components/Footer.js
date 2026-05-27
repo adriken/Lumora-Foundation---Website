@@ -11,8 +11,13 @@ export default function Footer({ setPage }) {
             one meal and one line of code at a time.
           </div>
           <div className="footer-socials">
-            {["𝕏", "in", "▶", "📷"].map((s, i) => (
-              <a key={i} href="#" className="social-btn">{s}</a>
+            {[
+              { icon: "in", href: "https://www.linkedin.com/in/lumora-foundation-0448b240b" },
+              { icon: "𝕏",  href: "https://x.com/Lumora_F" },
+              { icon: "▶",  href: "https://www.youtube.com/@LumoraFoundation" },
+              { icon: "f",  href: "https://www.facebook.com/people/Lumora-Mwangaza/pfbid031vxE7VTRaCT89XGwpiVKa3zfPTZ1gTtvuNKDkT5micheYyY2C4iP3Lhe8BBCHwNEl/" },
+            ].map((s, i) => (
+              <a key={i} href={s.href} target="_blank" rel="noopener noreferrer" className="social-btn">{s.icon}</a>
             ))}
           </div>
         </div>
