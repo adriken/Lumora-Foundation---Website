@@ -28,9 +28,9 @@ export default function Contact() {
                   <h2 className="section-h2" style={{ marginBottom: 48 }}>Reach Us <em>Directly</em></h2>
 
                   {[
-                    { icon: "📍", title: "Headquarters",      val: "Lumora House, Westlands\nNairobi, Kenya, 00100" },
+                    { icon: "📍", title: "Headquarters",      val: "Nairobi,Kenya" },
                     { icon: "✉️", title: "General Inquiries", val: "hello@lu-mora.org" },
-                    { icon: "🤝", title: "Partnerships",      val: "partners@lumorafoundation.org" },
+                    { icon: "🤝", title: "Partnerships",      val: "partners@lu-mora.org" },
                     { icon: "📞", title: "Phone",             val: "+254 700 000 000" },
                   ].map((c, i) => (
                     <div key={i} className="contact-info-item">
