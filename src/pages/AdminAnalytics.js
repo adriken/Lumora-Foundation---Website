@@ -1,17 +1,15 @@
 import { useState, useEffect } from "react";
 import { db, ref, onValue, off } from "../firebase";
 
-// ── Pulse dot ─────────────────────────────────────────────────────────────────
 function PulseDot({ color = "#22c55e" }) {
   return (
     <span style={{ position: "relative", display: "inline-flex", width: 10, height: 10 }}>
-      <span style={{ position: "absolute", inset: 0, borderRadius: "50%", background: color, opacity: 0.4, animation: "ping 1.5s cubic-bezier(0,0,.2,1) infinite" }} />
+      <span style={{ position: "absolute", inset: 0, borderRadius: "50%", background: color, opacity: 0.4, animation: "ping 1.5s infinite" }} />
       <span style={{ position: "relative", width: 10, height: 10, borderRadius: "50%", background: color }} />
     </span>
   );
 }
 
-// ── Mini bar ──────────────────────────────────────────────────────────────────
 function MiniBar({ data, color, height = 48 }) {
   const max = Math.max(...data, 1);
   return (
@@ -23,25 +21,12 @@ function MiniBar({ data, color, height = 48 }) {
   );
 }
 
-// ── Stat card ─────────────────────────────────────────────────────────────────
-function StatCard({ label, value, sub, color, chart }) {
-  return (
-    <div style={{ background: "#18181b", border: `1px solid rgba(255,255,255,.06)`, borderTop: `2px solid ${color}`, borderRadius: 16, padding: 24 }}>
-      <div style={{ fontSize: "0.68rem", fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: "#d4813a", marginBottom: 6 }}>{label}</div>
-      <div style={{ fontFamily: "'Playfair Display',Georgia,serif", fontSize: "2.4rem", fontWeight: 800, lineHeight: 1, color, marginBottom: 4 }}>{value}</div>
-      <div style={{ fontSize: "0.78rem", color: "#71717a", marginBottom: chart ? 16 : 0 }}>{sub}</div>
-      {chart && <MiniBar data={chart} color={color} />}
-    </div>
-  );
-}
-
-// ── Progress row ──────────────────────────────────────────────────────────────
-function ProgRow({ label, value, max, color }) {
+function ProgRow({ label, value, max, color, flag }) {
   const pct = max > 0 ? Math.round((value / max) * 100) : 0;
   return (
     <div style={{ marginBottom: 14 }}>
       <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5 }}>
-        <span style={{ fontSize: "0.85rem", color: "#e4e4e7" }}>{label}</span>
+        <span style={{ fontSize: "0.85rem", color: "#e4e4e7" }}>{flag ? `${flag} ` : ""}{label}</span>
         <span style={{ fontSize: "0.85rem", color, fontWeight: 700 }}>{value}</span>
       </div>
       <div style={{ height: 4, background: "rgba(255,255,255,.06)", borderRadius: 2 }}>
@@ -51,84 +36,84 @@ function ProgRow({ label, value, max, color }) {
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+// Country code → flag emoji
+function flag(code) {
+  if (!code || code === "XX") return "🌍";
+  return code.toUpperCase().replace(/./g, c =>
+    String.fromCodePoint(127397 + c.charCodeAt())
+  );
+}
+
 export default function AdminAnalytics({ onBack }) {
   const [tab, setTab]           = useState("overview");
-  const [visitors, setVisitors] = useState({ total: 0, today: 0, week: 0, month: 0 });
-  const [views, setViews]       = useState({ total: 0, today: 0, byPage: {} });
-  const [donations, setDonations] = useState({ total: 0, totalValue: 0, todayValue: 0, weekValue: 0, monthValue: 0 });
+  const [visitors, setVisitors] = useState({ total: 0, today: 0, week: 0, month: 0, byCountry: {} });
+  const [views, setViews]       = useState({ total: 0, today: 0, byPage: {}, byCountry: {}, sessions: [] });
+  const [donations, setDonations] = useState({ total: 0, totalValue: 0, todayValue: 0, weekValue: 0, monthValue: 0, byCountry: {} });
   const [liveUsers, setLiveUsers] = useState(0);
-  const [sessions, setSessions]   = useState([]);
-  const [loading, setLoading]     = useState(true);
+  const [countryNames, setCountryNames] = useState({});
+  const [loading, setLoading]   = useState(true);
   const [lastUpdated, setLastUpdated] = useState(new Date());
 
   useEffect(() => {
-    // ── Listen to visitors ──
-    const visRef = ref(db, "visitors");
-    onValue(visRef, snap => {
+    // Visitors
+    onValue(ref(db, "visitors"), snap => {
       if (snap.exists()) setVisitors(snap.val());
       setLoading(false);
       setLastUpdated(new Date());
     });
-
-    // ── Listen to page views ──
-    const pvRef = ref(db, "pageViews");
-    onValue(pvRef, snap => {
+    // Page views
+    onValue(ref(db, "pageViews"), snap => {
       if (snap.exists()) {
         const d = snap.val();
-        setViews({
-          total:  d.total  || 0,
-          today:  d.today  || 0,
-          byPage: d.byPage || {},
-        });
-        // Collect recent sessions
-        if (d.sessions) {
-          const arr = Object.entries(d.sessions)
-            .map(([k, v]) => ({ id: k, ...v }))
-            .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
-            .slice(0, 50);
-          setSessions(arr);
-        }
+        const sessions = d.sessions
+          ? Object.entries(d.sessions).map(([k, v]) => ({ id: k, ...v })).sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)).slice(0, 100)
+          : [];
+        setViews({ total: d.total || 0, today: d.today || 0, byPage: d.byPage || {}, byCountry: d.byCountry || {}, sessions });
       }
       setLastUpdated(new Date());
     });
-
-    // ── Listen to donations ──
-    const donRef = ref(db, "donations");
-    onValue(donRef, snap => {
+    // Donations
+    onValue(ref(db, "donations"), snap => {
       if (snap.exists()) {
         const d = snap.val();
-        setDonations({
-          total:      d.total      || 0,
-          totalValue: d.totalValue || 0,
-          todayValue: d.todayValue || 0,
-          weekValue:  d.weekValue  || 0,
-          monthValue: d.monthValue || 0,
-        });
+        setDonations({ total: d.total || 0, totalValue: d.totalValue || 0, todayValue: d.todayValue || 0, weekValue: d.weekValue || 0, monthValue: d.monthValue || 0, byCountry: d.byCountry || {} });
       }
       setLastUpdated(new Date());
     });
-
-    // ── Listen to live users ──
-    const luRef = ref(db, "liveUsers");
-    onValue(luRef, snap => {
-      if (snap.exists()) setLiveUsers(Math.max(0, snap.val()));
-    });
+    // Live users
+    onValue(ref(db, "liveUsers"), snap => { if (snap.exists()) setLiveUsers(Math.max(0, snap.val())); });
+    // Country name map
+    onValue(ref(db, "meta/countries"), snap => { if (snap.exists()) setCountryNames(snap.val()); });
 
     return () => {
       off(ref(db, "visitors"));
       off(ref(db, "pageViews"));
       off(ref(db, "donations"));
       off(ref(db, "liveUsers"));
+      off(ref(db, "meta/countries"));
     };
   }, []);
 
-  // Build sorted page list from byPage object
-  const pageList = Object.entries(views.byPage)
-    .map(([page, count]) => ({ page, count }))
-    .sort((a, b) => b.count - a.count);
+  // Build sorted lists
+  const pageList = Object.entries(views.byPage).map(([p, c]) => ({ page: p, count: c })).sort((a, b) => b.count - a.count);
+  const maxPage  = pageList.length > 0 ? pageList[0].count : 1;
 
-  const maxPageViews = pageList.length > 0 ? pageList[0].count : 1;
+  // Merge all country data
+  const allCountryCodes = new Set([
+    ...Object.keys(visitors.byCountry || {}),
+    ...Object.keys(views.byCountry    || {}),
+    ...Object.keys(donations.byCountry || {}),
+  ]);
+  const countryList = Array.from(allCountryCodes).map(code => ({
+    code,
+    name:      countryNames[code]?.name || code,
+    flag:      flag(code),
+    visitors:  (visitors.byCountry  || {})[code] || 0,
+    pageViews: (views.byCountry     || {})[code] || 0,
+    donations: (donations.byCountry || {})[code] || 0,
+  })).sort((a, b) => (b.visitors + b.pageViews) - (a.visitors + a.pageViews));
+
+  const maxCountryVisitors = countryList.length > 0 ? Math.max(...countryList.map(c => c.visitors), 1) : 1;
 
   const S = {
     page:    { background: "#09090b", minHeight: "100vh", color: "#e4e4e7", fontFamily: "'DM Sans',system-ui,sans-serif" },
@@ -137,6 +122,7 @@ export default function AdminAnalytics({ onBack }) {
     backBtn: { background: "transparent", color: "#71717a", border: "1px solid rgba(255,255,255,.08)", borderRadius: 8, padding: "7px 16px", fontFamily: "'DM Sans',system-ui,sans-serif", fontSize: "0.8rem", cursor: "pointer" },
     card:    { background: "#18181b", border: "1px solid rgba(255,255,255,.06)", borderRadius: 16, padding: 24 },
     h3:      { fontSize: "0.85rem", fontWeight: 600, color: "#a1a1aa", marginBottom: 16 },
+    tag:     { fontSize: "0.68rem", fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: "#d4813a", marginBottom: 6, display: "block" },
   };
 
   return (
@@ -150,7 +136,7 @@ export default function AdminAnalytics({ onBack }) {
             Lumora<span style={{ color: "#d4813a" }}>.</span> Analytics
           </div>
           <div style={{ display: "flex", gap: 6 }}>
-            {["overview", "pages", "sessions"].map(t => (
+            {["overview", "pages", "countries", "sessions"].map(t => (
               <button key={t} style={S.tabBtn(tab === t)} onClick={() => setTab(t)}>
                 {t.charAt(0).toUpperCase() + t.slice(1)}
               </button>
@@ -163,9 +149,7 @@ export default function AdminAnalytics({ onBack }) {
             <span style={{ color: "#22c55e", fontWeight: 700 }}>{liveUsers}</span>
             <span style={{ color: "#71717a" }}>live now</span>
           </div>
-          <div style={{ fontSize: "0.72rem", color: "#52525b" }}>
-            🔴 Firebase Live · Updated {lastUpdated.toLocaleTimeString()}
-          </div>
+          <div style={{ fontSize: "0.72rem", color: "#52525b" }}>🔴 Firebase · {lastUpdated.toLocaleTimeString()}</div>
           <button style={S.backBtn} onClick={onBack}>← Website</button>
         </div>
       </div>
@@ -174,123 +158,179 @@ export default function AdminAnalytics({ onBack }) {
         <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "60vh", flexDirection: "column", gap: 16 }}>
           <PulseDot color="#d4813a" />
           <div style={{ color: "#52525b", fontSize: "0.875rem" }}>Connecting to Firebase...</div>
-          <div style={{ color: "#3f3f46", fontSize: "0.78rem" }}>Make sure your Firebase config is filled in src/firebase.js</div>
         </div>
       ) : (
         <div style={{ padding: "32px", maxWidth: 1200, margin: "0 auto" }}>
 
-          {/* ── OVERVIEW TAB ── */}
+          {/* ══ OVERVIEW ══ */}
           {tab === "overview" && (
             <>
-              {/* KPI row */}
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 16, marginBottom: 24 }}>
-                <StatCard label="Total Visitors"    value={visitors.total.toLocaleString()} sub={`${visitors.today} today`}          color="#d4813a" chart={[visitors.month, visitors.week, visitors.today, visitors.today, visitors.today, visitors.today, visitors.today]} />
-                <StatCard label="Total Page Views"  value={views.total.toLocaleString()}    sub={`${views.today} today`}             color="#7aaa8a" chart={[views.today,views.today,views.today,views.today,views.today,views.today,views.today]} />
-                <StatCard label="Total Donations"   value={donations.total.toLocaleString()} sub={`$${donations.todayValue} today`}  color="#f0a055" chart={[donations.monthValue,donations.weekValue,donations.todayValue,donations.todayValue,donations.todayValue,donations.todayValue,donations.todayValue]} />
-                <StatCard label="Total Revenue"     value={`$${donations.totalValue.toLocaleString()}`} sub={`$${donations.weekValue} this week`} color="#818cf8" chart={[donations.monthValue,donations.weekValue,donations.todayValue,donations.todayValue,donations.todayValue,donations.todayValue,donations.todayValue]} />
-              </div>
-
-              {/* Secondary row */}
               <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 16, marginBottom: 24 }}>
                 {[
-                  { label: "Visitors This Week",  value: visitors.week.toLocaleString(),          note: "Unique sessions",      color: "#d4813a" },
-                  { label: "Visitors This Month", value: visitors.month.toLocaleString(),         note: "Unique sessions",      color: "#7aaa8a" },
-                  { label: "Revenue This Week",   value: `$${donations.weekValue.toLocaleString()}`,  note: "Via PayPal",      color: "#f0a055" },
-                  { label: "Revenue This Month",  value: `$${donations.monthValue.toLocaleString()}`, note: "Via PayPal",      color: "#818cf8" },
-                ].map((m, i) => (
-                  <div key={i} style={S.card}>
-                    <div style={S.h3}>{m.label}</div>
-                    <div style={{ fontFamily: "'Playfair Display',Georgia,serif", fontSize: "2rem", fontWeight: 800, color: m.color, marginBottom: 4 }}>{m.value}</div>
-                    <div style={{ fontSize: "0.78rem", color: "#71717a" }}>{m.note}</div>
+                  { label: "Total Visitors",   value: visitors.total.toLocaleString(),          sub: `${visitors.today} today`,            color: "#d4813a", chart: [visitors.month, visitors.week, visitors.today, visitors.today, visitors.today, visitors.today, visitors.today] },
+                  { label: "Total Page Views", value: views.total.toLocaleString(),              sub: `${views.today} today`,               color: "#7aaa8a", chart: [views.today, views.today, views.today, views.today, views.today, views.today, views.today] },
+                  { label: "Total Donations",  value: donations.total.toLocaleString(),          sub: `$${donations.todayValue} today`,     color: "#f0a055", chart: [donations.monthValue, donations.weekValue, donations.todayValue, donations.todayValue, donations.todayValue, donations.todayValue, donations.todayValue] },
+                  { label: "Total Revenue",    value: `$${donations.totalValue.toLocaleString()}`, sub: `$${donations.weekValue} this week`, color: "#818cf8", chart: [donations.monthValue, donations.weekValue, donations.todayValue, donations.todayValue, donations.todayValue, donations.todayValue, donations.todayValue] },
+                ].map((k, i) => (
+                  <div key={i} style={{ ...S.card, borderTop: `2px solid ${k.color}` }}>
+                    <span style={S.tag}>{k.label}</span>
+                    <div style={{ fontFamily: "'Playfair Display',Georgia,serif", fontSize: "2.4rem", fontWeight: 800, lineHeight: 1, color: k.color, marginBottom: 4 }}>{k.value}</div>
+                    <div style={{ fontSize: "0.78rem", color: "#71717a", marginBottom: 16 }}>{k.sub}</div>
+                    <MiniBar data={k.chart} color={k.color} />
                   </div>
                 ))}
               </div>
 
-              {/* Top pages */}
-              <div style={S.card}>
-                <div style={S.h3}>Top Pages — All Time</div>
-                {pageList.length === 0 ? (
-                  <div style={{ color: "#52525b", fontSize: "0.85rem", textAlign: "center", padding: "24px 0" }}>
-                    No page view data yet. Data appears here as visitors browse the site.
-                  </div>
-                ) : (
-                  pageList.map((p, i) => (
-                    <ProgRow key={i} label={p.page} value={p.count} max={maxPageViews} color="#d4813a" />
-                  ))
-                )}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+                {/* Top pages */}
+                <div style={S.card}>
+                  <div style={S.h3}>Top Pages</div>
+                  {pageList.length === 0
+                    ? <div style={{ color: "#52525b", fontSize: "0.85rem" }}>No page view data yet.</div>
+                    : pageList.map((p, i) => <ProgRow key={i} label={p.page} value={p.count} max={maxPage} color="#d4813a" />)
+                  }
+                </div>
+                {/* Top countries overview */}
+                <div style={S.card}>
+                  <div style={S.h3}>Top Countries — Visitors</div>
+                  {countryList.length === 0
+                    ? <div style={{ color: "#52525b", fontSize: "0.85rem" }}>No country data yet.</div>
+                    : countryList.slice(0, 8).map((c, i) => (
+                        <ProgRow key={i} label={c.name} value={c.visitors} max={maxCountryVisitors} color="#7aaa8a" flag={c.flag} />
+                      ))
+                  }
+                </div>
               </div>
             </>
           )}
 
-          {/* ── PAGES TAB ── */}
+          {/* ══ PAGES ══ */}
           {tab === "pages" && (
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
               <div style={S.card}>
-                <div style={S.h3}>Page views by page</div>
-                {pageList.length === 0 ? (
-                  <div style={{ color: "#52525b", fontSize: "0.85rem", padding: "24px 0" }}>No data yet — visit some pages first.</div>
-                ) : (
-                  pageList.map((p, i) => (
+                <div style={S.h3}>All page views by page</div>
+                {pageList.length === 0
+                  ? <div style={{ color: "#52525b", fontSize: "0.85rem" }}>No data yet.</div>
+                  : pageList.map((p, i) => (
                     <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: "1px solid rgba(255,255,255,.04)" }}>
                       <span style={{ fontSize: "0.875rem", color: "#e4e4e7" }}>{p.page}</span>
                       <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
                         <div style={{ width: 80, height: 4, background: "rgba(255,255,255,.06)", borderRadius: 2 }}>
-                          <div style={{ width: `${(p.count / maxPageViews) * 100}%`, height: "100%", background: "#d4813a", borderRadius: 2 }} />
+                          <div style={{ width: `${(p.count / maxPage) * 100}%`, height: "100%", background: "#d4813a", borderRadius: 2 }} />
                         </div>
                         <span style={{ fontSize: "0.875rem", color: "#d4813a", fontWeight: 700, minWidth: 32, textAlign: "right" }}>{p.count}</span>
                       </div>
                     </div>
                   ))
-                )}
+                }
               </div>
               <div style={S.card}>
-                <div style={S.h3}>Today vs All Time</div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 20, marginTop: 8 }}>
-                  {[
-                    { label: "Page Views Today",    value: views.today,    total: views.total,        color: "#7aaa8a" },
-                    { label: "Visitors Today",      value: visitors.today, total: visitors.total,      color: "#d4813a" },
-                    { label: "Revenue Today ($)",   value: donations.todayValue, total: donations.totalValue, color: "#f0a055" },
-                    { label: "Donations Today",     value: donations.total > 0 ? Math.round(donations.todayValue / (donations.totalValue / donations.total)) : 0, total: donations.total, color: "#818cf8" },
-                  ].map((m, i) => (
-                    <div key={i}>
-                      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
-                        <span style={{ fontSize: "0.82rem", color: "#a1a1aa" }}>{m.label}</span>
-                        <span style={{ fontSize: "0.82rem", color: m.color, fontWeight: 700 }}>{m.value} / {m.total}</span>
+                <div style={S.h3}>Page views by country</div>
+                {countryList.length === 0
+                  ? <div style={{ color: "#52525b", fontSize: "0.85rem" }}>No data yet.</div>
+                  : countryList.filter(c => c.pageViews > 0).sort((a, b) => b.pageViews - a.pageViews).map((c, i) => (
+                    <div key={i} style={{ display: "flex", alignItems: "center", gap: 12, padding: "8px 0", borderBottom: "1px solid rgba(255,255,255,.04)" }}>
+                      <span style={{ fontSize: "1.2rem" }}>{c.flag}</span>
+                      <span style={{ flex: 1, fontSize: "0.875rem", color: "#e4e4e7" }}>{c.name}</span>
+                      <div style={{ width: 60, height: 4, background: "rgba(255,255,255,.06)", borderRadius: 2 }}>
+                        <div style={{ width: `${(c.pageViews / Math.max(...countryList.map(x => x.pageViews), 1)) * 100}%`, height: "100%", background: "#7aaa8a", borderRadius: 2 }} />
                       </div>
-                      <div style={{ height: 4, background: "rgba(255,255,255,.06)", borderRadius: 2 }}>
-                        <div style={{ width: m.total > 0 ? `${(m.value / m.total) * 100}%` : "0%", height: "100%", background: m.color, borderRadius: 2, transition: "width .6s" }} />
-                      </div>
+                      <span style={{ fontSize: "0.875rem", color: "#7aaa8a", fontWeight: 700, minWidth: 28, textAlign: "right" }}>{c.pageViews}</span>
                     </div>
-                  ))}
-                </div>
+                  ))
+                }
               </div>
             </div>
           )}
 
-          {/* ── SESSIONS TAB ── */}
-          {tab === "sessions" && (
+          {/* ══ COUNTRIES ══ */}
+          {tab === "countries" && (
             <div style={S.card}>
-              <div style={S.h3}>Recent sessions — live feed ({sessions.length} recorded)</div>
-              {sessions.length === 0 ? (
-                <div style={{ color: "#52525b", fontSize: "0.85rem", textAlign: "center", padding: "40px 0" }}>
-                  No session data yet. Sessions appear here in real time as visitors browse.
+              <div style={S.h3}>All countries — visitors, page views & donations</div>
+              {countryList.length === 0 ? (
+                <div style={{ textAlign: "center", padding: "48px 0", color: "#52525b" }}>
+                  <div style={{ fontSize: "2rem", marginBottom: 12 }}>🌍</div>
+                  <div style={{ fontSize: "0.875rem" }}>No country data yet. Appears as visitors browse the site.</div>
                 </div>
               ) : (
                 <div style={{ overflowX: "auto" }}>
                   <table style={{ width: "100%", borderCollapse: "collapse" }}>
                     <thead>
                       <tr style={{ borderBottom: "1px solid rgba(255,255,255,.06)" }}>
-                        {["Page Visited", "Time"].map(h => (
+                        {["Country", "Visitors", "Page Views", "Donations", "Revenue Share"].map(h => (
+                          <th key={h} style={{ padding: "10px 14px", textAlign: "left", fontSize: "0.72rem", fontWeight: 700, color: "#52525b", textTransform: "uppercase", letterSpacing: "0.08em" }}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {countryList.map((c, i) => {
+                        const donationCountry = c.donations;
+                        const totalDonations  = donations.total || 1;
+                        const sharePct        = Math.round((donationCountry / totalDonations) * 100);
+                        return (
+                          <tr key={i} style={{ borderBottom: "1px solid rgba(255,255,255,.04)" }}>
+                            <td style={{ padding: "12px 14px" }}>
+                              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                                <span style={{ fontSize: "1.4rem" }}>{c.flag}</span>
+                                <span style={{ fontSize: "0.875rem", color: "#e4e4e7", fontWeight: 500 }}>{c.name}</span>
+                              </div>
+                            </td>
+                            <td style={{ padding: "12px 14px" }}>
+                              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                <div style={{ width: 50, height: 4, background: "rgba(255,255,255,.06)", borderRadius: 2 }}>
+                                  <div style={{ width: `${(c.visitors / maxCountryVisitors) * 100}%`, height: "100%", background: "#d4813a", borderRadius: 2 }} />
+                                </div>
+                                <span style={{ fontSize: "0.875rem", color: "#d4813a", fontWeight: 700 }}>{c.visitors}</span>
+                              </div>
+                            </td>
+                            <td style={{ padding: "12px 14px", fontSize: "0.875rem", color: "#7aaa8a", fontWeight: 600 }}>{c.pageViews}</td>
+                            <td style={{ padding: "12px 14px", fontSize: "0.875rem", color: "#f0a055", fontWeight: 600 }}>{c.donations}</td>
+                            <td style={{ padding: "12px 14px" }}>
+                              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                <div style={{ width: 60, height: 4, background: "rgba(255,255,255,.06)", borderRadius: 2 }}>
+                                  <div style={{ width: `${sharePct}%`, height: "100%", background: "#818cf8", borderRadius: 2 }} />
+                                </div>
+                                <span style={{ fontSize: "0.8rem", color: "#818cf8" }}>{sharePct}%</span>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ══ SESSIONS ══ */}
+          {tab === "sessions" && (
+            <div style={S.card}>
+              <div style={S.h3}>Recent sessions with country — live feed ({views.sessions.length} recorded)</div>
+              {views.sessions.length === 0 ? (
+                <div style={{ textAlign: "center", padding: "40px 0", color: "#52525b", fontSize: "0.875rem" }}>
+                  No session data yet. Sessions appear here in real time.
+                </div>
+              ) : (
+                <div style={{ overflowX: "auto" }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                    <thead>
+                      <tr style={{ borderBottom: "1px solid rgba(255,255,255,.06)" }}>
+                        {["Page", "Country", "City", "Time"].map(h => (
                           <th key={h} style={{ padding: "8px 12px", textAlign: "left", fontSize: "0.72rem", fontWeight: 700, color: "#52525b", textTransform: "uppercase", letterSpacing: "0.08em" }}>{h}</th>
                         ))}
                       </tr>
                     </thead>
                     <tbody>
-                      {sessions.map((s, i) => (
+                      {views.sessions.map((s, i) => (
                         <tr key={s.id} style={{ borderBottom: "1px solid rgba(255,255,255,.04)" }}>
-                          <td style={{ padding: "10px 12px", fontSize: "0.875rem", color: "#e4e4e7" }}>
+                          <td style={{ padding: "10px 12px" }}>
                             <span style={{ background: "rgba(212,129,58,.1)", color: "#d4813a", borderRadius: 6, padding: "2px 10px", fontSize: "0.78rem", fontWeight: 600 }}>{s.page}</span>
                           </td>
+                          <td style={{ padding: "10px 12px", fontSize: "0.875rem", color: "#e4e4e7" }}>
+                            {s.countryCode ? `${flag(s.countryCode)} ` : "🌍 "}{s.country || "Unknown"}
+                          </td>
+                          <td style={{ padding: "10px 12px", fontSize: "0.8rem", color: "#71717a" }}>{s.city || "—"}</td>
                           <td style={{ padding: "10px 12px", fontSize: "0.8rem", color: "#52525b" }}>
                             {s.timestamp ? new Date(s.timestamp).toLocaleString() : "—"}
                           </td>

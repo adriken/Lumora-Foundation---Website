@@ -4,10 +4,17 @@ import { db, ref, onValue, off } from "../firebase";
 function timeAgo(ts) {
   if (!ts) return "—";
   const diff = Math.floor((Date.now() - ts) / 1000);
-  if (diff < 60)   return `${diff}s ago`;
-  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+  if (diff < 60)    return `${diff}s ago`;
+  if (diff < 3600)  return `${Math.floor(diff / 60)}m ago`;
   if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
   return new Date(ts).toLocaleDateString();
+}
+
+function flag(code) {
+  if (!code || code === "XX") return "🌍";
+  return code.toUpperCase().replace(/./g, c =>
+    String.fromCodePoint(127397 + c.charCodeAt())
+  );
 }
 
 function PulseDot({ color = "#22c55e" }) {
@@ -20,15 +27,14 @@ function PulseDot({ color = "#22c55e" }) {
 }
 
 export default function DonationsView({ onBack }) {
-  const [summary, setSummary]     = useState({ total: 0, totalValue: 0, todayValue: 0, weekValue: 0, monthValue: 0 });
-  const [donations, setDonations] = useState([]);
-  const [filter, setFilter]       = useState("all");
-  const [loading, setLoading]     = useState(true);
+  const [summary, setSummary]       = useState({ total: 0, totalValue: 0, todayValue: 0, weekValue: 0, monthValue: 0, byCountry: {} });
+  const [donations, setDonations]   = useState([]);
+  const [countryNames, setCountryNames] = useState({});
+  const [filter, setFilter]         = useState("all");
+  const [loading, setLoading]       = useState(true);
 
   useEffect(() => {
-    // ── Listen to donation summary ──
-    const sumRef = ref(db, "donations");
-    onValue(sumRef, snap => {
+    onValue(ref(db, "donations"), snap => {
       if (snap.exists()) {
         const d = snap.val();
         setSummary({
@@ -37,9 +43,8 @@ export default function DonationsView({ onBack }) {
           todayValue: d.todayValue || 0,
           weekValue:  d.weekValue  || 0,
           monthValue: d.monthValue || 0,
+          byCountry:  d.byCountry  || {},
         });
-
-        // Parse donation log
         if (d.log) {
           const arr = Object.entries(d.log)
             .map(([id, v]) => ({ id, ...v }))
@@ -51,21 +56,37 @@ export default function DonationsView({ onBack }) {
       }
       setLoading(false);
     });
-
-    return () => off(ref(db, "donations"));
+    onValue(ref(db, "meta/countries"), snap => {
+      if (snap.exists()) setCountryNames(snap.val());
+    });
+    return () => {
+      off(ref(db, "donations"));
+      off(ref(db, "meta/countries"));
+    };
   }, []);
 
-  const filtered = filter === "all"
-    ? donations
-    : donations.filter(d => d.frequency === filter);
+  const filtered = filter === "all" ? donations : donations.filter(d => d.frequency === filter);
 
-  // Tier breakdown from real data
-  const tierCounts = donations.reduce((acc, d) => {
-    acc[d.tier] = (acc[d.tier] || 0) + 1;
-    return acc;
-  }, {});
+  // Tier breakdown
+  const tierCounts = donations.reduce((acc, d) => { acc[d.tier] = (acc[d.tier] || 0) + 1; return acc; }, {});
+  const topTier    = Math.max(...Object.values(tierCounts), 1);
 
-  const topTier = Math.max(...Object.values(tierCounts), 1);
+  // Country breakdown from byCountry counter + donation log
+  const countryDonations = {};
+  const countryRevenue   = {};
+  donations.forEach(d => {
+    if (!d.countryCode) return;
+    countryDonations[d.countryCode] = (countryDonations[d.countryCode] || 0) + 1;
+    countryRevenue[d.countryCode]   = (countryRevenue[d.countryCode]   || 0) + (d.amount || 0);
+  });
+  const countryList = Object.keys(countryDonations).map(code => ({
+    code,
+    name:     countryNames[code]?.name || code,
+    flag:     flag(code),
+    count:    countryDonations[code],
+    revenue:  countryRevenue[code] || 0,
+  })).sort((a, b) => b.count - a.count);
+  const maxCountry = countryList.length > 0 ? countryList[0].count : 1;
 
   const S = {
     page:      { background: "#09090b", minHeight: "100vh", color: "#e4e4e7", fontFamily: "'DM Sans',system-ui,sans-serif" },
@@ -124,39 +145,39 @@ export default function DonationsView({ onBack }) {
             ))}
           </div>
 
-          {/* Tier breakdown + frequency */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 24 }}>
+          {/* Tier + country breakdown */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16, marginBottom: 24 }}>
+
+            {/* Tier breakdown */}
             <div style={S.card}>
               <div style={{ fontSize: "0.85rem", fontWeight: 600, color: "#a1a1aa", marginBottom: 16 }}>Donations by tier</div>
-              {Object.keys(tierCounts).length === 0 ? (
-                <div style={{ color: "#52525b", fontSize: "0.85rem" }}>No donations recorded yet.</div>
-              ) : (
-                Object.entries(tierCounts)
-                  .sort((a, b) => b[1] - a[1])
-                  .map(([tier, count], i) => (
-                    <div key={i} style={{ marginBottom: 14 }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5 }}>
-                        <span style={{ fontSize: "0.82rem", color: "#e4e4e7" }}>{tier}</span>
-                        <span style={{ fontSize: "0.82rem", color: "#d4813a", fontWeight: 700 }}>{count}</span>
-                      </div>
-                      <div style={{ height: 4, background: "rgba(255,255,255,.06)", borderRadius: 2 }}>
-                        <div style={{ width: `${(count / topTier) * 100}%`, height: "100%", background: "#d4813a", borderRadius: 2, opacity: 0.75 }} />
-                      </div>
+              {Object.keys(tierCounts).length === 0
+                ? <div style={{ color: "#52525b", fontSize: "0.85rem" }}>No donations yet.</div>
+                : Object.entries(tierCounts).sort((a, b) => b[1] - a[1]).map(([tier, count], i) => (
+                  <div key={i} style={{ marginBottom: 14 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5 }}>
+                      <span style={{ fontSize: "0.82rem", color: "#e4e4e7" }}>{tier}</span>
+                      <span style={{ fontSize: "0.82rem", color: "#d4813a", fontWeight: 700 }}>{count}</span>
                     </div>
-                  ))
-              )}
+                    <div style={{ height: 4, background: "rgba(255,255,255,.06)", borderRadius: 2 }}>
+                      <div style={{ width: `${(count / topTier) * 100}%`, height: "100%", background: "#d4813a", borderRadius: 2, opacity: 0.75 }} />
+                    </div>
+                  </div>
+                ))
+              }
             </div>
 
+            {/* Frequency split */}
             <div style={S.card}>
               <div style={{ fontSize: "0.85rem", fontWeight: 600, color: "#a1a1aa", marginBottom: 16 }}>Frequency split</div>
               {["monthly", "once", "annual"].map((freq, i) => {
-                const count = donations.filter(d => d.frequency === freq).length;
-                const pct   = donations.length > 0 ? Math.round((count / donations.length) * 100) : 0;
+                const count  = donations.filter(d => d.frequency === freq).length;
+                const pct    = donations.length > 0 ? Math.round((count / donations.length) * 100) : 0;
                 const colors = ["#d4813a", "#7aaa8a", "#818cf8"];
-                const labels = ["Monthly recurring", "One-time gifts", "Annual recurring"];
+                const labels = ["Monthly", "One-time", "Annual"];
                 return (
-                  <div key={i} style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 20 }}>
-                    <div style={{ fontFamily: "'Playfair Display',Georgia,serif", fontSize: "1.8rem", fontWeight: 800, color: colors[i], minWidth: 64 }}>{pct}%</div>
+                  <div key={i} style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 20 }}>
+                    <div style={{ fontFamily: "'Playfair Display',Georgia,serif", fontSize: "1.8rem", fontWeight: 800, color: colors[i], minWidth: 56 }}>{pct}%</div>
                     <div>
                       <div style={{ fontWeight: 600, color: "#e4e4e7", fontSize: "0.875rem" }}>{labels[i]}</div>
                       <div style={{ fontSize: "0.78rem", color: "#71717a" }}>{count} donors</div>
@@ -164,6 +185,27 @@ export default function DonationsView({ onBack }) {
                   </div>
                 );
               })}
+            </div>
+
+            {/* Country breakdown */}
+            <div style={S.card}>
+              <div style={{ fontSize: "0.85rem", fontWeight: 600, color: "#a1a1aa", marginBottom: 16 }}>Donations by country</div>
+              {countryList.length === 0
+                ? <div style={{ color: "#52525b", fontSize: "0.85rem" }}>No country data yet.</div>
+                : countryList.slice(0, 8).map((c, i) => (
+                  <div key={i} style={{ marginBottom: 14 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5, alignItems: "center" }}>
+                      <span style={{ fontSize: "0.82rem", color: "#e4e4e7", display: "flex", alignItems: "center", gap: 6 }}>
+                        <span style={{ fontSize: "1rem" }}>{c.flag}</span> {c.name}
+                      </span>
+                      <span style={{ fontSize: "0.82rem", color: "#7aaa8a", fontWeight: 700 }}>{c.count} · ${c.revenue}</span>
+                    </div>
+                    <div style={{ height: 4, background: "rgba(255,255,255,.06)", borderRadius: 2 }}>
+                      <div style={{ width: `${(c.count / maxCountry) * 100}%`, height: "100%", background: "#7aaa8a", borderRadius: 2, opacity: 0.75 }} />
+                    </div>
+                  </div>
+                ))
+              }
             </div>
           </div>
 
@@ -191,30 +233,34 @@ export default function DonationsView({ onBack }) {
                 <table style={{ width: "100%", borderCollapse: "collapse" }}>
                   <thead>
                     <tr style={{ borderBottom: "1px solid rgba(255,255,255,.06)" }}>
-                      {["Donor", "Amount", "Tier", "Frequency", "Email", "Time", "Status"].map(h => (
-                        <th key={h} style={{ padding: "8px 12px", textAlign: "left", fontSize: "0.72rem", fontWeight: 700, color: "#52525b", textTransform: "uppercase", letterSpacing: "0.08em" }}>{h}</th>
+                      {["Donor", "Amount", "Tier", "Frequency", "Country", "City", "Email", "Time", "Status"].map(h => (
+                        <th key={h} style={{ padding: "8px 12px", textAlign: "left", fontSize: "0.72rem", fontWeight: 700, color: "#52525b", textTransform: "uppercase", letterSpacing: "0.08em", whiteSpace: "nowrap" }}>{h}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
                     {filtered.map((d, i) => (
                       <tr key={d.id} style={{ borderBottom: "1px solid rgba(255,255,255,.04)", animation: i === 0 ? "slideIn .4s ease" : "none", background: i === 0 ? "rgba(34,197,94,.04)" : "transparent" }}>
-                        <td style={{ padding: "12px 12px", fontSize: "0.875rem", color: "#e4e4e7", fontWeight: 500 }}>
+                        <td style={{ padding: "12px 12px", fontSize: "0.875rem", color: "#e4e4e7", fontWeight: 500, whiteSpace: "nowrap" }}>
                           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                             {i === 0 && <span style={S.newBadge}>New</span>}
                             {d.name}
                           </div>
                         </td>
-                        <td style={{ padding: "12px 12px", fontSize: "0.95rem", fontWeight: 800, color: "#22c55e", fontFamily: "'Playfair Display',Georgia,serif" }}>${d.amount}</td>
-                        <td style={{ padding: "12px 12px", fontSize: "0.8rem", color: "#a1a1aa" }}>{d.tier}</td>
-                        <td style={{ padding: "12px 12px" }}>
+                        <td style={{ padding: "12px 12px", fontSize: "0.95rem", fontWeight: 800, color: "#22c55e", fontFamily: "'Playfair Display',Georgia,serif", whiteSpace: "nowrap" }}>${d.amount}</td>
+                        <td style={{ padding: "12px 12px", fontSize: "0.8rem", color: "#a1a1aa", whiteSpace: "nowrap" }}>{d.tier}</td>
+                        <td style={{ padding: "12px 12px", whiteSpace: "nowrap" }}>
                           <span style={{ background: d.frequency === "monthly" ? "rgba(212,129,58,.15)" : d.frequency === "annual" ? "rgba(129,140,248,.15)" : "rgba(122,170,138,.15)", color: d.frequency === "monthly" ? "#d4813a" : d.frequency === "annual" ? "#818cf8" : "#7aaa8a", borderRadius: 6, padding: "3px 10px", fontSize: "0.75rem", fontWeight: 600 }}>
                             {d.frequency === "monthly" ? "Monthly" : d.frequency === "annual" ? "Annual" : "One-time"}
                           </span>
                         </td>
-                        <td style={{ padding: "12px 12px", fontSize: "0.8rem", color: "#52525b" }}>{d.email || "—"}</td>
-                        <td style={{ padding: "12px 12px", fontSize: "0.8rem", color: "#52525b" }}>{timeAgo(d.timestamp)}</td>
-                        <td style={{ padding: "12px 12px" }}>
+                        <td style={{ padding: "12px 12px", fontSize: "0.875rem", color: "#e4e4e7", whiteSpace: "nowrap" }}>
+                          {d.countryCode ? `${flag(d.countryCode)} ` : "🌍 "}{d.country || "Unknown"}
+                        </td>
+                        <td style={{ padding: "12px 12px", fontSize: "0.8rem", color: "#71717a", whiteSpace: "nowrap" }}>{d.city || "—"}</td>
+                        <td style={{ padding: "12px 12px", fontSize: "0.8rem", color: "#52525b", whiteSpace: "nowrap" }}>{d.email || "—"}</td>
+                        <td style={{ padding: "12px 12px", fontSize: "0.8rem", color: "#52525b", whiteSpace: "nowrap" }}>{timeAgo(d.timestamp)}</td>
+                        <td style={{ padding: "12px 12px", whiteSpace: "nowrap" }}>
                           <span style={{ background: d.status === "initiated" ? "rgba(251,191,36,.1)" : "rgba(34,197,94,.1)", color: d.status === "initiated" ? "#fbbf24" : "#22c55e", borderRadius: 6, padding: "3px 10px", fontSize: "0.75rem", fontWeight: 600 }}>
                             {d.status === "initiated" ? "⏳ Pending" : "✓ Completed"}
                           </span>
@@ -225,9 +271,8 @@ export default function DonationsView({ onBack }) {
                 </table>
               </div>
             )}
-
             <div style={{ marginTop: 16, padding: "12px 16px", background: "rgba(255,255,255,.02)", borderRadius: 10, fontSize: "0.78rem", color: "#52525b", textAlign: "center" }}>
-              All payments processed via PayPal · Funds deposited to adams.lockin@gmail.com · Data stored in Firebase Realtime Database
+              All payments via PayPal → adams.lockin@gmail.com · Country data via IP geolocation · Stored in Firebase
             </div>
           </div>
         </div>
